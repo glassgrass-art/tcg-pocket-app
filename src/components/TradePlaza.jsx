@@ -1,6 +1,6 @@
 // src/components/TradePlaza.jsx
 import React, { useState } from 'react';
-import { calculateMatchScore } from '../utils/tradeMatcher';
+import { calculateMatchScore } from './utils/tradeMatcher';
 
 // 模拟广场玩家数据（后续可接入 Firebase / Cloudflare D1 数据库）
 const MOCK_PLAZA_USERS = [
