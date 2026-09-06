@@ -1,167 +1,145 @@
 // src/components/CollectionGrid.jsx
 import React, { useState, useEffect } from 'react';
-import { fetchPocketCards } from '../utils/tcgdex';
+import { fetchPocketCards, LANGUAGES } from '../utils/tcgdex';
 
 export const CollectionGrid = ({ inventory = {}, onUpdateCount }) => {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [currentLang, setCurrentLang] = useState('zh-cn');
 
+  // 当语言切换时重新向 TCGDex 抓取该语言数据
   useEffect(() => {
     let isMounted = true;
     const loadCards = async () => {
       setLoading(true);
-      const cardList = await fetchPocketCards();
+      const data = await fetchPocketCards(currentLang);
       if (isMounted) {
-        setCards(cardList || []);
+        setCards(data);
         setLoading(false);
       }
     };
     loadCards();
     return () => { isMounted = false; };
-  }, []);
+  }, [currentLang]);
 
+  // 按卡名或编号筛选
   const filteredCards = cards.filter(card =>
     card.name.toLowerCase().includes(search.toLowerCase()) ||
     card.id.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>
-        <p>正在加载卡牌数据...</p>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px' }}>
+    <div className="max-w-7xl mx-auto px-4 py-6">
       
-      {/* 搜索与卡牌计数栏 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '10px' }}>
-        <input
-          type="text"
-          placeholder="搜索卡牌名字或编号 (如: 妙蛙种子 / A1-001)..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#181824',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '8px',
-            color: '#fff',
-            width: '300px'
-          }}
-        />
-        <div style={{ color: '#aaa', fontSize: '14px' }}>
-          已加载 <strong style={{ color: '#818cf8' }}>{filteredCards.length}</strong> 张卡牌
+      {/* 顶部控制栏：搜索 + 语言切换 + 计数 */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
+        
+        {/* 搜索框 */}
+        <div className="w-full md:w-auto flex-1 max-w-md">
+          <input
+            type="text"
+            placeholder="搜索卡牌名称或编号 (如: 超梦 / A1-086 / Charizard)..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-4 py-2.5 bg-[#181824] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition shadow-inner"
+          />
+        </div>
+
+        {/* 语言切换器 & 数量统计 */}
+        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+          
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">🌐 语言:</span>
+            <select
+              value={currentLang}
+              onChange={(e) => setCurrentLang(e.target.value)}
+              className="bg-[#181824] border border-white/10 text-xs text-indigo-400 rounded-lg px-3 py-2 font-bold focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+              {LANGUAGES.map(lang => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="text-xs text-gray-400">
+            已加载 <span className="text-indigo-400 font-bold">{cards.length}</span> 张卡牌
+          </div>
         </div>
       </div>
 
-      {/* 卡牌网格 */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-        gap: '16px'
-      }}>
-        {filteredCards.map(card => {
-          const count = inventory[card.id]?.count || 0;
+      {/* Loading 状态 */}
+      {loading ? (
+        <div className="py-24 text-center">
+          <div className="inline-block w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-sm text-gray-400 font-medium">
+            正在从 TCGDex 加载 <span className="text-indigo-400">{LANGUAGES.find(l => l.code === currentLang)?.name}</span> 全量卡牌数据...
+          </p>
+        </div>
+      ) : (
+        /* 卡牌网格 */
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {filteredCards.map(card => {
+            const count = inventory[card.id]?.count || 0;
 
-          return (
-            <div
-              key={card.id}
-              style={{
-                backgroundColor: '#181824',
-                border: count > 0 ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.05)',
-                borderRadius: '12px',
-                padding: '12px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                position: 'relative',
-                opacity: count > 0 ? 1 : 0.7
-              }}
-            >
-              {/* 卡牌编号 */}
-              <span style={{
-                position: 'absolute',
-                top: '6px',
-                left: '6px',
-                fontSize: '10px',
-                color: '#aaa',
-                backgroundColor: 'rgba(0,0,0,0.6)',
-                padding: '2px 4px',
-                borderRadius: '4px'
-              }}>
-                {card.id}
-              </span>
-
-              {/* 卡图 */}
-              <img
-                src={card.image}
-                alt={card.name}
-                style={{
-                  width: '100%',
-                  height: 'auto',
-                  borderRadius: '6px',
-                  margin: '16px 0 8px 0',
-                  minHeight: '120px',
-                  backgroundColor: '#0F0F16',
-                  objectFit: 'contain'
-                }}
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = 'https://via.placeholder.com/150x210?text=Pokémon';
-                }}
-              />
-
-              {/* 卡牌名称 */}
-              <div style={{
-                fontSize: '12px',
-                fontWeight: 'bold',
-                color: '#fff',
-                marginBottom: '8px',
-                textAlign: 'center',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                width: '100%'
-              }}>
-                {card.name}
-              </div>
-
-              {/* 数量调整按钮 */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                backgroundColor: '#0F0F16',
-                padding: '4px 12px',
-                borderRadius: '8px',
-                border: '1px solid rgba(255,255,255,0.05)'
-              }}>
-                <button
-                  onClick={() => onUpdateCount(card.id, -1)}
-                  style={{ color: '#aaa', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  -
-                </button>
-                <span style={{ fontSize: '12px', fontWeight: 'bold', color: count > 0 ? '#818cf8' : '#666' }}>
-                  {count}
+            return (
+              <div
+                key={card.id}
+                className={`bg-[#181824] border rounded-2xl p-3 flex flex-col items-center relative transition-all duration-200 ${
+                  count > 0
+                    ? 'border-indigo-500 shadow-lg shadow-indigo-500/20 scale-[1.02]'
+                    : 'border-white/5 opacity-70 hover:opacity-100'
+                }`}
+              >
+                {/* 编号徽章 */}
+                <span className="absolute top-2 left-2 text-[10px] font-mono text-gray-300 bg-black/70 px-1.5 py-0.5 rounded backdrop-blur-md z-10">
+                  {card.id}
                 </span>
-                <button
-                  onClick={() => onUpdateCount(card.id, 1)}
-                  style={{ color: '#aaa', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  +
-                </button>
+
+                {/* 卡图位 */}
+                <div className="w-full aspect-[3/4] relative flex items-center justify-center my-1 rounded-lg overflow-hidden bg-black/30">
+                  {card.image ? (
+                    <img
+                      src={card.image}
+                      alt={card.name}
+                      className="w-full h-full object-contain rounded-lg transform hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="text-xs text-gray-600">暂无图片</div>
+                  )}
+                </div>
+
+                {/* 卡牌名称 */}
+                <h3 className="text-xs font-bold text-white text-center truncate w-full my-2">
+                  {card.name}
+                </h3>
+
+                {/* 持有量控制 */}
+                <div className="flex items-center gap-3 bg-[#0F0F16] px-3 py-1.5 rounded-xl border border-white/10 w-full justify-between">
+                  <button
+                    onClick={() => onUpdateCount(card.id, -1)}
+                    className="text-gray-400 hover:text-white font-black text-sm px-2 rounded hover:bg-white/5 transition"
+                  >
+                    -
+                  </button>
+                  <span className={`text-xs font-bold ${count > 0 ? 'text-indigo-400 font-mono text-sm' : 'text-gray-500'}`}>
+                    {count}
+                  </span>
+                  <button
+                    onClick={() => onUpdateCount(card.id, 1)}
+                    className="text-gray-400 hover:text-white font-black text-sm px-2 rounded hover:bg-white/5 transition"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-
-            </div>
-          );
-        })}
-      </div>
-
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
