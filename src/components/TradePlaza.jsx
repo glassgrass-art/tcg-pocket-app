@@ -1,6 +1,6 @@
 // src/components/TradePlaza.jsx
 import React, { useState } from 'react';
-import { calculateMatchScore } from './utils/tradeMatcher';
+import { calculateMatchScore } from '../utils/tradeMatcher';
 
 // 模拟广场玩家数据（后续可接入 Firebase / Cloudflare D1 数据库）
 const MOCK_PLAZA_USERS = [
@@ -17,7 +17,7 @@ const MOCK_PLAZA_USERS = [
     name: 'Ash_Ketchum',
     friendId: '9876-5432-1098-7654',
     contact: 'Telegram: @ash_tcg',
-    offers: ['A1-001'],            // 妙蛙种子
+    offers: ['A1-001'],             // 妙蛙种子
     wants: ['A1-086']              // 超梦ex
   }
 ];
