@@ -7,18 +7,20 @@ export const CollectionGrid = ({ inventory = {}, onUpdateCount }) => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  // 页面加载时自动从 TCGDex 拉取卡牌
   useEffect(() => {
+    let isMounted = true;
     const loadCards = async () => {
       setLoading(true);
       const cardList = await fetchPocketCards();
-      setCards(cardList);
-      setLoading(false);
+      if (isMounted) {
+        setCards(cardList || []);
+        setLoading(false);
+      }
     };
     loadCards();
+    return () => { isMounted = false; };
   }, []);
 
-  // 名字搜索过滤
   const filteredCards = cards.filter(card =>
     card.name.toLowerCase().includes(search.toLowerCase()) ||
     card.id.toLowerCase().includes(search.toLowerCase())
@@ -26,43 +28,71 @@ export const CollectionGrid = ({ inventory = {}, onUpdateCount }) => {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-12 text-center text-gray-400">
-        <div className="inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-        <p className="text-sm">正在加载 TCG Pocket 多语言卡牌数据库...</p>
+      <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>
+        <p>正在加载卡牌数据...</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      {/* 搜索与统计栏 */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px' }}>
+      
+      {/* 搜索与卡牌计数栏 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '10px' }}>
         <input
           type="text"
           placeholder="搜索卡牌名字或编号 (如: 妙蛙种子 / A1-001)..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full sm:w-80 px-4 py-2 bg-[#181824] border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500 transition"
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#181824',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '8px',
+            color: '#fff',
+            width: '300px'
+          }}
         />
-        <div className="text-xs text-gray-400">
-          已加载 <span className="text-indigo-400 font-bold">{cards.length}</span> 张卡牌
+        <div style={{ color: '#aaa', fontSize: '14px' }}>
+          已加载 <strong style={{ color: '#818cf8' }}>{filteredCards.length}</strong> 张卡牌
         </div>
       </div>
 
       {/* 卡牌网格 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+        gap: '16px'
+      }}>
         {filteredCards.map(card => {
           const count = inventory[card.id]?.count || 0;
 
           return (
             <div
               key={card.id}
-              className={`bg-[#181824] border rounded-2xl p-3 flex flex-col items-center relative transition ${
-                count > 0 ? 'border-indigo-500/50 shadow-lg shadow-indigo-500/10' : 'border-white/5 opacity-60'
-              }`}
+              style={{
+                backgroundColor: '#181824',
+                border: count > 0 ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.05)',
+                borderRadius: '12px',
+                padding: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                position: 'relative',
+                opacity: count > 0 ? 1 : 0.7
+              }}
             >
               {/* 卡牌编号 */}
-              <span className="absolute top-2 left-2 text-[10px] font-mono text-gray-400 bg-black/40 px-1.5 py-0.5 rounded">
+              <span style={{
+                position: 'absolute',
+                top: '6px',
+                left: '6px',
+                fontSize: '10px',
+                color: '#aaa',
+                backgroundColor: 'rgba(0,0,0,0.6)',
+                padding: '2px 4px',
+                borderRadius: '4px'
+              }}>
                 {card.id}
               </span>
 
@@ -70,37 +100,68 @@ export const CollectionGrid = ({ inventory = {}, onUpdateCount }) => {
               <img
                 src={card.image}
                 alt={card.name}
-                className="w-full h-auto rounded-lg my-2 object-cover"
-                loading="lazy"
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  borderRadius: '6px',
+                  margin: '16px 0 8px 0',
+                  minHeight: '120px',
+                  backgroundColor: '#0F0F16',
+                  objectFit: 'contain'
+                }}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://via.placeholder.com/150x210?text=Pokémon';
+                }}
               />
 
               {/* 卡牌名称 */}
-              <h3 className="text-xs font-bold text-white text-center truncate w-full mb-2">
+              <div style={{
+                fontSize: '12px',
+                fontWeight: 'bold',
+                color: '#fff',
+                marginBottom: '8px',
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                width: '100%'
+              }}>
                 {card.name}
-              </h3>
+              </div>
 
-              {/* 持有数量加减操作 */}
-              <div className="flex items-center gap-3 bg-[#0F0F16] px-3 py-1 rounded-xl border border-white/5">
+              {/* 数量调整按钮 */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                backgroundColor: '#0F0F16',
+                padding: '4px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.05)'
+              }}>
                 <button
                   onClick={() => onUpdateCount(card.id, -1)}
-                  className="text-gray-400 hover:text-white font-bold text-sm px-1"
+                  style={{ color: '#aaa', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
                 >
                   -
                 </button>
-                <span className={`text-xs font-bold ${count > 0 ? 'text-indigo-400' : 'text-gray-500'}`}>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: count > 0 ? '#818cf8' : '#666' }}>
                   {count}
                 </span>
                 <button
                   onClick={() => onUpdateCount(card.id, 1)}
-                  className="text-gray-400 hover:text-white font-bold text-sm px-1"
+                  style={{ color: '#aaa', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
                 >
                   +
                 </button>
               </div>
+
             </div>
           );
         })}
       </div>
+
     </div>
   );
 };
