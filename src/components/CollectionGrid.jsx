@@ -1,125 +1,108 @@
+// src/components/CollectionGrid.jsx
 import React, { useState, useEffect } from 'react';
-import { getCardImageUrl, handleCardImageError } from '../utils/tcgdex';
-import { getLocalCollection, updateCardCount } from '../utils/storage';
+import { fetchPocketCards } from '../utils/tcgdex';
 
-// 示例数据扩展包与卡牌数据（后续可接动态 JSON/API）
-const MOCK_SETS = [
-  { id: 'A1', name: '最强的基因 (Genetic Apex)' },
-  { id: 'A1a', name: '幻之岛 (Mythical Island)' },
-  { id: 'PROMO-A', name: 'Promo-A 特典卡' }
-];
+export const CollectionGrid = ({ inventory = {}, onUpdateCount }) => {
+  const [cards, setCards] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
-const MOCK_CARDS = [
-  { id: '001', setId: 'A1', name: '妙蛙种子', rarity: 'C' },
-  { id: '002', setId: 'A1', name: '妙蛙草', rarity: 'U' },
-  { id: '003', setId: 'A1', name: '妙蛙花', rarity: 'R' },
-  { id: '004', setId: 'A1', name: '妙蛙花 ex', rarity: 'RR' },
-  { id: '086', setId: 'A1', name: '超梦 ex', rarity: 'SAR' },
-  { id: '001', setId: 'A1a', name: '梦幻', rarity: 'AR' },
-];
-
-export const CollectionGrid = ({ currentLang = 'zh-tw' }) => {
-  const [selectedSet, setSelectedSet] = useState('A1');
-  const [userCollection, setUserCollection] = useState({});
-
-  // 初始化加载本地持卡数据
+  // 页面加载时自动从 TCGDex 拉取卡牌
   useEffect(() => {
-    setUserCollection(getLocalCollection());
+    const loadCards = async () => {
+      setLoading(true);
+      const cardList = await fetchPocketCards();
+      setCards(cardList);
+      setLoading(false);
+    };
+    loadCards();
   }, []);
 
-  // 快捷更新持卡数量
-  const handleCardClick = (cardKey, delta) => {
-    const currentCount = userCollection[cardKey] || 0;
-    const newCount = Math.max(0, currentCount + delta);
-    const updated = updateCardCount(cardKey, newCount);
-    if (updated) setUserCollection({ ...updated });
-  };
+  // 名字搜索过滤
+  const filteredCards = cards.filter(card =>
+    card.name.toLowerCase().includes(search.toLowerCase()) ||
+    card.id.toLowerCase().includes(search.toLowerCase())
+  );
 
-  const filteredCards = MOCK_CARDS.filter(card => card.setId === selectedSet);
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-12 text-center text-gray-400">
+        <div className="inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p className="text-sm">正在加载 TCG Pocket 多语言卡牌数据库...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
-      
-      {/* 1. 扩展包筛选 Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-none mb-6">
-        {MOCK_SETS.map(set => (
-          <button
-            key={set.id}
-            onClick={() => setSelectedSet(set.id)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${
-              selectedSet === set.id
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                : 'bg-[#181824] text-gray-400 hover:bg-[#252538]'
-            }`}
-          >
-            {set.name}
-          </button>
-        ))}
+      {/* 搜索与统计栏 */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+        <input
+          type="text"
+          placeholder="搜索卡牌名字或编号 (如: 妙蛙种子 / A1-001)..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full sm:w-80 px-4 py-2 bg-[#181824] border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500 transition"
+        />
+        <div className="text-xs text-gray-400">
+          已加载 <span className="text-indigo-400 font-bold">{cards.length}</span> 张卡牌
+        </div>
       </div>
 
-      {/* 2. 高清瀑布流卡牌墙 */}
+      {/* 卡牌网格 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {filteredCards.map(card => {
-          const cardKey = `${card.setId}-${card.id}`;
-          const count = userCollection[cardKey] || 0;
-          const imgUrl = getCardImageUrl(card.setId, card.id, currentLang);
+          const count = inventory[card.id]?.count || 0;
 
           return (
-            <div 
-              key={cardKey} 
-              className={`relative group bg-[#181824] rounded-xl p-2 border transition-all duration-200 ${
-                count > 0 ? 'border-indigo-500/50 shadow-md shadow-indigo-500/10' : 'border-white/5 opacity-70 hover:opacity-100'
+            <div
+              key={card.id}
+              className={`bg-[#181824] border rounded-2xl p-3 flex flex-col items-center relative transition ${
+                count > 0 ? 'border-indigo-500/50 shadow-lg shadow-indigo-500/10' : 'border-white/5 opacity-60'
               }`}
             >
-              {/* 卡牌图片 */}
-              <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-black/40">
-                <img
-                  src={imgUrl}
-                  alt={card.name}
-                  onError={(e) => handleCardImageError(e, card.setId, card.id)}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
-                />
-                
-                {/* 持有数量角标 */}
-                {count > 0 && (
-                  <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold shadow-md ${
-                    count >= 2 ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'
-                  }`}>
-                    {count >= 2 ? `可出 x${count - 1}` : `x${count}`}
-                  </span>
-                )}
-              </div>
+              {/* 卡牌编号 */}
+              <span className="absolute top-2 left-2 text-[10px] font-mono text-gray-400 bg-black/40 px-1.5 py-0.5 rounded">
+                {card.id}
+              </span>
 
-              {/* 卡片名称与稀有度 */}
-              <div className="mt-2 flex justify-between items-center px-1">
-                <span className="text-xs text-gray-300 truncate font-medium">{card.name}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-amber-400 font-bold">
-                  {card.rarity}
-                </span>
-              </div>
+              {/* 卡图 */}
+              <img
+                src={card.image}
+                alt={card.name}
+                className="w-full h-auto rounded-lg my-2 object-cover"
+                loading="lazy"
+              />
 
-              {/* 极速增减按钮 */}
-              <div className="mt-2 flex gap-1">
+              {/* 卡牌名称 */}
+              <h3 className="text-xs font-bold text-white text-center truncate w-full mb-2">
+                {card.name}
+              </h3>
+
+              {/* 持有数量加减操作 */}
+              <div className="flex items-center gap-3 bg-[#0F0F16] px-3 py-1 rounded-xl border border-white/5">
                 <button
-                  onClick={() => handleCardClick(cardKey, -1)}
-                  className="flex-1 py-1 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-gray-400 text-xs rounded transition"
+                  onClick={() => onUpdateCount(card.id, -1)}
+                  className="text-gray-400 hover:text-white font-bold text-sm px-1"
                 >
                   -
                 </button>
+                <span className={`text-xs font-bold ${count > 0 ? 'text-indigo-400' : 'text-gray-500'}`}>
+                  {count}
+                </span>
                 <button
-                  onClick={() => handleCardClick(cardKey, 1)}
-                  className="flex-1 py-1 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white text-xs font-bold rounded transition"
+                  onClick={() => onUpdateCount(card.id, 1)}
+                  className="text-gray-400 hover:text-white font-bold text-sm px-1"
                 >
                   +
                 </button>
               </div>
-
             </div>
           );
         })}
       </div>
-
     </div>
   );
 };
+
+export default CollectionGrid;
