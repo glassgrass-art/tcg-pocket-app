@@ -1,126 +1,107 @@
-// src/components/TradePlaza.jsx
-import React, { useState } from 'react';
-import { calculateMatchScore } from './utils/tradeMatcher';
+import React, { useState, useEffect } from 'react';
+import { CardGrid } from './components/CardGrid';
+import { TradePlaza } from './components/TradePlaza';
+import { getUserTradeStatus } from './utils/tradeMatcher';
 
-// 模拟广场玩家数据（后续可接入 Firebase / Cloudflare D1 数据库）
-const MOCK_PLAZA_USERS = [
-  {
-    id: 'user_01',
-    name: 'Red_Trainer',
-    friendId: '1234-5678-9012-3456',
-    contact: 'Discord: red#1234',
-    offers: ['A1-086', 'A1-004'], // 超梦ex, 妙蛙花ex
-    wants: ['A1-001', 'A1a-001']   // 妙蛙种子, 梦幻
-  },
-  {
-    id: 'user_02',
-    name: 'Ash_Ketchum',
-    friendId: '9876-5432-1098-7654',
-    contact: 'Telegram: @ash_tcg',
-    offers: ['A1-001'],            // 妙蛙种子
-    wants: ['A1-086']              // 超梦ex
-  }
-];
+export const App = () => {
+  // 当前激活的标签页：'cards' (卡牌图鉴) | 'plaza' (交易广场)
+  const [activeTab, setActiveTab] = useState('cards');
 
-export const TradePlaza = ({ userOffers = [], userWants = [] }) => {
-  const [copiedId, setCopiedId] = useState('');
+  // 用户持有的卡牌数据，格式如: { 'A1-001': { count: 2 }, 'A1-002': { count: 0 } }
+  const [inventory, setInventory] = useState(() => {
+    const saved = localStorage.getItem('tcg_pocket_inventory');
+    return saved ? JSON.parse(saved) : {};
+  });
 
-  const handleCopy = (friendId) => {
-    navigator.clipboard.writeText(friendId);
-    setCopiedId(friendId);
-    setTimeout(() => setCopiedId(''), 2000);
+  // 持久化保存用户持卡数据
+  useEffect(() => {
+    localStorage.setItem('tcg_pocket_inventory', JSON.stringify(inventory));
+  }, [inventory]);
+
+  // 更新某张卡牌的持有数量
+  const handleUpdateCardCount = (cardKey, delta) => {
+    setInventory(prev => {
+      const currentCount = prev[cardKey]?.count || 0;
+      const newCount = Math.max(0, currentCount + delta);
+      return {
+        ...prev,
+        [cardKey]: { ...prev[cardKey], count: newCount }
+      };
+    });
   };
 
+  // 自动计算当前用户“可提供交易(offers)”和“寻求求购(wants)”的卡牌 Key 列表
+  const { offers: userOffers, wants: userWants } = getUserTradeStatus(inventory);
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="min-h-screen bg-[#0F0F16] text-gray-100 flex flex-col font-sans">
       
-      {/* 顶部发布提示面板 */}
-      <div className="bg-[#181824] border border-indigo-500/20 rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <span>🤝</span> 交易配对广场 (Trade Plaza)
-          </h2>
-          <p className="text-xs text-gray-400 mt-1">
-            根据你当前的图鉴，系统已为你精选出最匹配互补的交易玩家。
-          </p>
-        </div>
-        <button className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 hover:opacity-90 transition whitespace-nowrap">
-          发布我的交易需求
-        </button>
-      </div>
+      {/* 顶部导航栏 */}
+      <header className="bg-[#181824] border-b border-white/10 sticky top-0 z-50 backdrop-blur-md bg-opacity-80">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          
+          {/* Logo 标题 */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/30">
+              🎴
+            </div>
+            <h1 className="font-extrabold text-lg tracking-wide text-white">
+              TCG Pocket <span className="text-indigo-400 font-normal text-sm">Trade Hub</span>
+            </h1>
+          </div>
 
-      {/* 玩家卡片列表 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {MOCK_PLAZA_USERS.map(player => {
-          const match = calculateMatchScore(userOffers, userWants, player.offers, player.wants);
-
-          return (
-            <div 
-              key={player.id}
-              className={`bg-[#181824] border rounded-2xl p-5 relative transition ${
-                match.isPerfectMatch ? 'border-emerald-500/50 shadow-lg shadow-emerald-500/10' : 'border-white/5'
+          {/* 切换 Tab 按钮 */}
+          <nav className="flex items-center gap-2 bg-[#0F0F16] p-1.5 rounded-xl border border-white/5">
+            <button
+              onClick={() => setActiveTab('cards')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'cards'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
-              {/* 完美匹配标签 */}
-              {match.isPerfectMatch && (
-                <span className="absolute top-4 right-4 px-2.5 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-extrabold rounded-full">
-                  双向双赢匹配 🎉
-                </span>
+              🃏 我的卡牌库
+            </button>
+            <button
+              onClick={() => setActiveTab('plaza')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all relative ${
+                activeTab === 'plaza'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              🤝 交易广场
+              {/* 如果有可交易项，显示小红点提示 */}
+              {(userOffers.length > 0 || userWants.length > 0) && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse" />
               )}
+            </button>
+          </nav>
+        </div>
+      </header>
 
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-400">
-                  {player.name.slice(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-white">{player.name}</h3>
-                  <p className="text-xs text-gray-400">{player.contact}</p>
-                </div>
-              </div>
+      {/* 主体内容区域 */}
+      <main className="flex-1">
+        {activeTab === 'cards' ? (
+          <CardGrid 
+            inventory={inventory} 
+            onUpdateCount={handleUpdateCardCount} 
+          />
+        ) : (
+          <TradePlaza 
+            userOffers={userOffers} 
+            userWants={userWants} 
+          />
+        )}
+      </main>
 
-              {/* 16位 Friend ID 复制区域 */}
-              <div className="bg-[#0F0F16] rounded-xl p-2.5 mb-4 flex items-center justify-between border border-white/5">
-                <span className="text-xs font-mono text-gray-300 tracking-wider">
-                  ID: {player.friendId}
-                </span>
-                <button
-                  onClick={() => handleCopy(player.friendId)}
-                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-lg transition"
-                >
-                  {copiedId === player.friendId ? '已复制！' : '复制 ID'}
-                </button>
-              </div>
-
-              {/* 卡牌供需清单 */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-emerald-950/30 border border-emerald-500/10 p-2.5 rounded-xl">
-                  <span className="text-[10px] text-emerald-400 font-bold block mb-1">对方提供 (Offers)</span>
-                  <div className="flex flex-wrap gap-1">
-                    {player.offers.map(key => (
-                      <span key={key} className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-[10px]">
-                        {key}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-amber-950/30 border border-amber-500/10 p-2.5 rounded-xl">
-                  <span className="text-[10px] text-amber-400 font-bold block mb-1">对方需求 (Wants)</span>
-                  <div className="flex flex-wrap gap-1">
-                    {player.wants.map(key => (
-                      <span key={key} className="px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[10px]">
-                        {key}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          );
-        })}
-      </div>
-
+      {/* 底部 Footer */}
+      <footer className="border-t border-white/5 py-6 text-center text-xs text-gray-500">
+        <p>Pokémon TCG Pocket Trade Matcher &copy; {new Date().getFullYear()}</p>
+      </footer>
     </div>
   );
 };
+
+// 补上默认导出，修复 main.jsx 的 "default is not exported" 构建错误
+export default App;
