@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import CollectionGrid from './components/CollectionGrid';
+import { CollectionGrid } from './components/CollectionGrid';
 import { TradePlaza } from './components/TradePlaza';
 import { getUserTradeStatus } from './utils/tradeMatcher';
 
