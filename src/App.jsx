@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CardGrid } from './components/CardGrid';
+import CollectionGrid from './components/CollectionGrid';
 import { TradePlaza } from './components/TradePlaza';
 import { getUserTradeStatus } from './utils/tradeMatcher';
 
@@ -83,7 +83,7 @@ export const App = () => {
       {/* 主体内容区域 */}
       <main className="flex-1">
         {activeTab === 'cards' ? (
-          <CardGrid 
+          <CollectionGrid 
             inventory={inventory} 
             onUpdateCount={handleUpdateCardCount} 
           />
@@ -103,5 +103,4 @@ export const App = () => {
   );
 };
 
-// 补上默认导出，修复 main.jsx 的 "default is not exported" 构建错误
 export default App;
