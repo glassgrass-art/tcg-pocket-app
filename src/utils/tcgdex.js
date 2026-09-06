@@ -1,28 +1,33 @@
 // src/utils/tcgdex.js
 
-// TCGDex API 基础路径
-const BASE_URL = 'https://api.tcgdex.net/v2/zh-cn';
+// 保底数据，确保 API 失败或延迟时也能正常展示卡牌
+const FALLBACK_CARDS = [
+  { id: 'A1-001', name: '妙蛙种子', image: 'https://assets.tcgdex.net/zh-cn/pocket/A1/001/high.png', localId: '001' },
+  { id: 'A1-002', name: '妙蛙草', image: 'https://assets.tcgdex.net/zh-cn/pocket/A1/002/high.png', localId: '002' },
+  { id: 'A1-003', name: '妙蛙花ex', image: 'https://assets.tcgdex.net/zh-cn/pocket/A1/003/high.png', localId: '003' },
+  { id: 'A1-004', name: '小火龙', image: 'https://assets.tcgdex.net/zh-cn/pocket/A1/004/high.png', localId: '004' },
+  { id: 'A1-086', name: '超梦ex', image: 'https://assets.tcgdex.net/zh-cn/pocket/A1/086/high.png', localId: '086' },
+  { id: 'A1-096', name: '皮卡丘ex', image: 'https://assets.tcgdex.net/zh-cn/pocket/A1/096/high.png', localId: '096' }
+];
 
-/**
- * 获取 TCG Pocket 所有卡牌列表
- */
 export const fetchPocketCards = async () => {
   try {
-    // 请求 TCG Pocket 扩展包 (A1 / Genetic Apex 等)
-    const response = await fetch(`${BASE_URL}/series/pocket/cards`);
-    if (!response.ok) throw new Error('Network response was not ok');
-    const data = await response.json();
+    // 尝试拉取 TCGDex Pocket 系列 (A1 扩展包)
+    const res = await fetch('https://api.tcgdex.net/v2/zh-cn/sets/A1');
+    if (!res.ok) throw new Error('API Response Error');
     
-    // 格式化卡牌数据，便于前端展示
-    return data.map(card => ({
-      id: card.id,               // 示例: 'A1-001'
-      name: card.name,           // 卡牌名称 (中文)
-      image: `${card.image}/high.png`, // 高清卡图 URL
-      localId: card.localId,     // 编号 (如 001)
-      rarity: card.rarity || 'Common'
-    }));
+    const data = await res.json();
+    if (data && Array.isArray(data.cards) && data.cards.length > 0) {
+      return data.cards.map(card => ({
+        id: `A1-${card.localId}`,
+        name: card.name,
+        image: card.image ? `${card.image}/high.png` : 'https://assets.tcgdex.net/zh-cn/pocket/A1/001/high.png',
+        localId: card.localId
+      }));
+    }
+    return FALLBACK_CARDS;
   } catch (error) {
-    console.error('Failed to fetch cards from TCGDex:', error);
-    return [];
+    console.warn('TCGDex API Fetch fallback:', error);
+    return FALLBACK_CARDS;
   }
 };
